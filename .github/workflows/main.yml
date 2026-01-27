@@ -6,27 +6,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar mi codigo
+      - name: 1. Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Descomprimir proyecto
-        run: unzip CursorOverlay.zip
+      - name: 2. Descomprimir archivos
+        run: |
+          unzip CursorOverlay.zip
+          # Esto mueve los archivos fuera si estaban dentro de una carpeta
+          cp -r CursorOverlay/* . || true 
 
-      - name: Configurar Java
+      - name: 3. Configurar Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
-      - name: Dar permisos
-        run: chmod +x gradlew
-        continue-on-error: true # Por si el zip no tiene el archivo gradlew fuera
+      - name: 4. Corregir permisos de Gradle
+        run: |
+          # Si no existe el ejecutable, lo creamos
+          if [ ! -f gradlew ]; then gradle wrapper; fi
+          chmod +x gradlew
 
-      - name: Compilar APK
+      - name: 5. Compilar APK
         run: ./gradlew assembleDebug
 
-      - name: Subir Resultado
+      - name: 6. Subir APK final
         uses: actions/upload-artifact@v4
         with:
-          name: App-Compilada
-          path: "**/*.apk" # Busca cualquier APK que se haya creado
+          name: App-Instalable
+          path: "**/build/outputs/apk/debug/*.apk"
