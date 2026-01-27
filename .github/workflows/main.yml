@@ -9,36 +9,29 @@ jobs:
       - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Instalar Herramientas
+      - name: 2. Instalar Herramientas (Link Corregido)
         run: |
           sudo apt-get update
           sudo apt-get install -y apksigner unzip
-          wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar -O apktool.jar
+          # Usamos un link directo de GitHub que no falla
+          curl -L https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o apktool.jar
 
       - name: 3. Preparar HyperDroid
         run: |
-          # Extraemos el APK real desde el archivo XAPK que subiste
+          # Extraemos el APK del XAPK que subiste
           unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
           cp xapk_folder/*.apk base_app.apk
 
       - name: 4. Inyectar Cursor de Claude
         run: |
-          # Abrimos la app original para meterle el cursor
           java -jar apktool.jar d base_app.apk -o decoded_app
-          
-          # Extraemos los archivos del cursor
           unzip CursorOverlay.zip -d cursor_files
-          
-          # Movemos el cursor a los activos de la app
           mkdir -p decoded_app/assets/
           cp -r cursor_files/* decoded_app/assets/ || true
-          
-          # Cerramos la app ya modificada
           java -jar apktool.jar b decoded_app -o HyperDroid_PC_Version.apk
 
       - name: 5. Firmar para Instalación
         run: |
-          # Creamos una llave de seguridad para que tu celular acepte el archivo
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_PC_Version.apk
 
