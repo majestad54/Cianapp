@@ -1,37 +1,49 @@
-name: Compilar APK Final
+name: Modificar HyperDroid con Cursor
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  mod:
     runs-on: ubuntu-latest
     steps:
       - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Descomprimir y Organizar
+      - name: 2. Instalar Herramientas
         run: |
-          unzip CursorOverlay.zip
-          PROYECTO_DIR=$(find . -name "build.gradle" -exec dirname {} + | head -n 1)
-          echo "DIR_PATH=$PROYECTO_DIR" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install -y apksigner unzip
+          wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar -O apktool.jar
 
-      - name: 3. Configurar Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: gradle
-
-      - name: 4. Compilar APK (Modo Forzado)
+      - name: 3. Preparar HyperDroid
         run: |
-          cd ${{ env.DIR_PATH }}
-          if [ ! -f gradlew ]; then gradle wrapper; fi
-          chmod +x gradlew
-          # Limpiamos todo antes de empezar y usamos opciones de compatibilidad
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
+          # Extraemos el APK real desde el archivo XAPK que subiste
+          unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
+          cp xapk_folder/*.apk base_app.apk
 
-      - name: 5. Entregar APK
+      - name: 4. Inyectar Cursor de Claude
+        run: |
+          # Abrimos la app original para meterle el cursor
+          java -jar apktool.jar d base_app.apk -o decoded_app
+          
+          # Extraemos los archivos del cursor
+          unzip CursorOverlay.zip -d cursor_files
+          
+          # Movemos el cursor a los activos de la app
+          mkdir -p decoded_app/assets/
+          cp -r cursor_files/* decoded_app/assets/ || true
+          
+          # Cerramos la app ya modificada
+          java -jar apktool.jar b decoded_app -o HyperDroid_PC_Version.apk
+
+      - name: 5. Firmar para Instalación
+        run: |
+          # Creamos una llave de seguridad para que tu celular acepte el archivo
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_PC_Version.apk
+
+      - name: 6. Entregar Resultado
         uses: actions/upload-artifact@v4
         with:
-          name: CursorOverlay-Instalable
-          path: "**/*.apk"
+          name: HyperDroid-Con-Mouse
+          path: HyperDroid_PC_Version.apk
