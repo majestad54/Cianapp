@@ -1,4 +1,4 @@
-name: Compilar APK desde ZIP
+name: Compilar APK Final
 on:
   workflow_dispatch:
 
@@ -6,14 +6,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Descargar repositorio
+      - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Descomprimir archivos
+      - name: 2. Descomprimir y Organizar
         run: |
           unzip CursorOverlay.zip
-          # Esto mueve los archivos fuera si estaban dentro de una carpeta
-          cp -r CursorOverlay/* . || true 
+          # Buscamos donde quedó el archivo build.gradle y nos movemos ahí
+          PROYECTO_DIR=$(find . -name "build.gradle" -exec dirname {} + | head -n 1)
+          echo "Proyecto encontrado en: $PROYECTO_DIR"
+          echo "DIR_PATH=$PROYECTO_DIR" >> $GITHUB_ENV
 
       - name: 3. Configurar Java
         uses: actions/setup-java@v4
@@ -22,17 +24,16 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: 4. Corregir permisos de Gradle
+      - name: 4. Compilar APK
         run: |
-          # Si no existe el ejecutable, lo creamos
+          cd ${{ env.DIR_PATH }}
+          # Si no existe el ejecutable gradlew, lo creamos
           if [ ! -f gradlew ]; then gradle wrapper; fi
           chmod +x gradlew
+          ./gradlew assembleDebug
 
-      - name: 5. Compilar APK
-        run: ./gradlew assembleDebug
-
-      - name: 6. Subir APK final
+      - name: 5. Entregar APK
         uses: actions/upload-artifact@v4
         with:
-          name: App-Instalable
-          path: "**/build/outputs/apk/debug/*.apk"
+          name: CursorOverlay-Instalable
+          path: "**/*.apk"
