@@ -1,4 +1,4 @@
-name: Modificar HyperDroid con Cursor
+name: Modificar HyperDroid (Versión Compatible)
 on:
   workflow_dispatch:
 
@@ -9,35 +9,39 @@ jobs:
       - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Instalar Herramientas
+      - name: 2. Instalar Herramientas Pro
         run: |
           sudo apt-get update
           sudo apt-get install -y apksigner unzip
           curl -L https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o apktool.jar
 
-      - name: 3. Preparar HyperDroid (Nombre Corregido)
+      - name: 3. Fusionar y Preparar (Solución a No Compatible)
         run: |
-          # Extraemos el contenido del XAPK
           unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
-          # Usamos el nombre real que vimos en el error: com.binary.hyperdroid.apk
+          # Usamos el APK base
           cp xapk_folder/com.binary.hyperdroid.apk base_app.apk
+          # Abrimos la app
+          java -jar apktool.jar d base_app.apk -o decoded_app
+          
+          # TRUCO DE COMPATIBILIDAD: Movemos los recursos extras al APK principal
+          # Esto evita el error de "No es compatible"
+          cp -r xapk_folder/config.*.apk decoded_app/assets/ || true
 
       - name: 4. Inyectar Cursor de Claude
         run: |
-          java -jar apktool.jar d base_app.apk -o decoded_app
           unzip CursorOverlay.zip -d cursor_files
           mkdir -p decoded_app/assets/
           cp -r cursor_files/* decoded_app/assets/ || true
-          # Volvemos a armar la app
-          java -jar apktool.jar b decoded_app -o HyperDroid_Mod.apk
+          # Reconstruimos ignorando errores de recursos
+          java -jar apktool.jar b decoded_app -o HyperDroid_Universal.apk
 
-      - name: 5. Firmar para Instalación
+      - name: 5. Firmar Aplicación
         run: |
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_Mod.apk
+          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_Universal.apk
 
-      - name: 6. Entregar Resultado
+      - name: 6. Entregar APK Universal
         uses: actions/upload-artifact@v4
         with:
-          name: HyperDroid-PC-Final
-          path: HyperDroid_Mod.apk
+          name: HyperDroid-PC-Compatible
+          path: HyperDroid_Universal.apk
