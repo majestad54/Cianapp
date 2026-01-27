@@ -9,18 +9,18 @@ jobs:
       - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Instalar Herramientas (Link Corregido)
+      - name: 2. Instalar Herramientas
         run: |
           sudo apt-get update
           sudo apt-get install -y apksigner unzip
-          # Usamos un link directo de GitHub que no falla
           curl -L https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o apktool.jar
 
-      - name: 3. Preparar HyperDroid
+      - name: 3. Preparar HyperDroid (Nombre Corregido)
         run: |
-          # Extraemos el APK del XAPK que subiste
+          # Extraemos el contenido del XAPK
           unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
-          cp xapk_folder/*.apk base_app.apk
+          # Usamos el nombre real que vimos en el error: com.binary.hyperdroid.apk
+          cp xapk_folder/com.binary.hyperdroid.apk base_app.apk
 
       - name: 4. Inyectar Cursor de Claude
         run: |
@@ -28,15 +28,16 @@ jobs:
           unzip CursorOverlay.zip -d cursor_files
           mkdir -p decoded_app/assets/
           cp -r cursor_files/* decoded_app/assets/ || true
-          java -jar apktool.jar b decoded_app -o HyperDroid_PC_Version.apk
+          # Volvemos a armar la app
+          java -jar apktool.jar b decoded_app -o HyperDroid_Mod.apk
 
       - name: 5. Firmar para Instalación
         run: |
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_PC_Version.apk
+          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_Mod.apk
 
       - name: 6. Entregar Resultado
         uses: actions/upload-artifact@v4
         with:
-          name: HyperDroid-Con-Mouse
-          path: HyperDroid_PC_Version.apk
+          name: HyperDroid-PC-Final
+          path: HyperDroid_Mod.apk
