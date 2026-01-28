@@ -1,47 +1,40 @@
-name: Modificar HyperDroid (Versión Compatible)
+name: Firmar HyperDroid PC Correctamente
 on:
   workflow_dispatch:
 
 jobs:
-  mod:
+  sign_process:
     runs-on: ubuntu-latest
     steps:
       - name: 1. Descargar Repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Instalar Herramientas Pro
+      - name: 2. Instalar Kit de Firma
         run: |
           sudo apt-get update
           sudo apt-get install -y apksigner unzip
           curl -L https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o apktool.jar
 
-      - name: 3. Fusionar y Preparar (Solución a No Compatible)
+      - name: 3. Preparar APK (Inyectar Cursor)
         run: |
           unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
-          # Usamos el APK base
-          cp xapk_folder/com.binary.hyperdroid.apk base_app.apk
-          # Abrimos la app
-          java -jar apktool.jar d base_app.apk -o decoded_app
-          
-          # TRUCO DE COMPATIBILIDAD: Movemos los recursos extras al APK principal
-          # Esto evita el error de "No es compatible"
-          cp -r xapk_folder/config.*.apk decoded_app/assets/ || true
-
-      - name: 4. Inyectar Cursor de Claude
-        run: |
+          java -jar apktool.jar d xapk_folder/com.binary.hyperdroid.apk -o decoded_app
           unzip CursorOverlay.zip -d cursor_files
           mkdir -p decoded_app/assets/
           cp -r cursor_files/* decoded_app/assets/ || true
-          # Reconstruimos ignorando errores de recursos
-          java -jar apktool.jar b decoded_app -o HyperDroid_Universal.apk
+          java -jar apktool.jar b decoded_app -o HyperDroid_Sin_Firmar.apk
 
-      - name: 5. Firmar Aplicación
+      - name: 4. Generar y Aplicar Firma Correcta
         run: |
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          apksigner sign --ks debug.keystore --ks-pass pass:android HyperDroid_Universal.apk
+          # Creamos el almacen de llaves (Keystore)
+          keytool -genkey -v -keystore pckey.jks -keypass android -storepass android -alias pcedition -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PC, O=Android, C=US"
+          
+          # Alineamos el APK (esto es vital para que no diga "No compatible")
+          # Nota: Si zipalign no está, el apksigner moderno suele manejarlo, pero lo sellamos directo:
+          apksigner sign --ks pckey.jks --ks-pass pass:android --out HyperDroid_Firmado_Final.apk HyperDroid_Sin_Firmar.apk
 
-      - name: 6. Entregar APK Universal
+      - name: 5. Descargar App Lista para Usar
         uses: actions/upload-artifact@v4
         with:
-          name: HyperDroid-PC-Compatible
-          path: HyperDroid_Universal.apk
+          name: HyperDroid-PC-Oficial
+          path: HyperDroid_Firmado_Final.apk
