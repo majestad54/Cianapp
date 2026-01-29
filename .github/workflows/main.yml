@@ -1,40 +1,48 @@
-name: Firmar HyperDroid PC Correctamente
+name: Build HyperDroid APK
+
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  sign_process:
+  build:
     runs-on: ubuntu-latest
+
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+
     steps:
-      - name: 1. Descargar Repositorio
-        uses: actions/checkout@v4
+    # 1️⃣ Checkout el repo
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: 2. Instalar Kit de Firma
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apksigner unzip
-          curl -L https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -o apktool.jar
+    # 2️⃣ Instalar dependencias de Android y Gradle
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: 3. Preparar APK (Inyectar Cursor)
-        run: |
-          unzip "HyperDroid - PC Launcher_2.0_APKPure.xapk" -d xapk_folder
-          java -jar apktool.jar d xapk_folder/com.binary.hyperdroid.apk -o decoded_app
-          unzip CursorOverlay.zip -d cursor_files
-          mkdir -p decoded_app/assets/
-          cp -r cursor_files/* decoded_app/assets/ || true
-          java -jar apktool.jar b decoded_app -o HyperDroid_Sin_Firmar.apk
+    - name: Install Gradle
+      uses: gradle/gradle-build-action@v2
 
-      - name: 4. Generar y Aplicar Firma Correcta
-        run: |
-          # Creamos el almacen de llaves (Keystore)
-          keytool -genkey -v -keystore pckey.jks -keypass android -storepass android -alias pcedition -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PC, O=Android, C=US"
-          
-          # Alineamos el APK (esto es vital para que no diga "No compatible")
-          # Nota: Si zipalign no está, el apksigner moderno suele manejarlo, pero lo sellamos directo:
-          apksigner sign --ks pckey.jks --ks-pass pass:android --out HyperDroid_Firmado_Final.apk HyperDroid_Sin_Firmar.apk
+    # 3️⃣ Descomprimir el ZIP del proyecto
+    - name: Unzip project
+      run: unzip -o HyperDroidTermux.zip -d .
 
-      - name: 5. Descargar App Lista para Usar
-        uses: actions/upload-artifact@v4
-        with:
-          name: HyperDroid-PC-Oficial
-          path: HyperDroid_Firmado_Final.apk
+    # 4️⃣ Cambiar al directorio del proyecto
+    - name: Move to project
+      run: cd HyperDroidTermux
+
+    # 5️⃣ Compilar APK
+    - name: Build APK
+      run: ./gradlew assembleDebug
+
+    # 6️⃣ Guardar APK como artifact
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: HyperDroid-debug-apk
+        path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
