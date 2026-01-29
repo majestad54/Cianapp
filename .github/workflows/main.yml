@@ -14,35 +14,30 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     steps:
-    # 1️⃣ Checkout el repo
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      # ✅ Obtener el código/subir tu ZIP
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # 2️⃣ Instalar dependencias de Android y Gradle
-    - name: Setup Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      # ✅ Configurar Java
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    - name: Install Gradle
-      uses: gradle/gradle-build-action@v2
+      # ✅ Descomprimir el proyecto desde ZIP
+      - name: Unzip project
+        run: unzip -o HyperDroidTermux.zip -d .
 
-    # 3️⃣ Descomprimir el ZIP del proyecto
-    - name: Unzip project
-      run: unzip -o HyperDroidTermux.zip -d .
+      # ✅ Compilar con Gradle
+      - name: Build APK
+        run: |
+          cd HyperDroidTermux
+          ./gradlew assembleDebug
 
-    # 4️⃣ Cambiar al directorio del proyecto
-    - name: Move to project
-      run: cd HyperDroidTermux
-
-    # 5️⃣ Compilar APK
-    - name: Build APK
-      run: ./gradlew assembleDebug
-
-    # 6️⃣ Guardar APK como artifact
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
-      with:
-        name: HyperDroid-debug-apk
-        path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
+      # ✅ Subir APK como artefacto (v4 de la acción)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HyperDroid-debug-apk
+          path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
