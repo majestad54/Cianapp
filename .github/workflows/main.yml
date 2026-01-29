@@ -11,53 +11,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout del repo
+      # 1️⃣ Descargar el repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Java 17
+      # 2️⃣ Instalar Java 17
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # 3️⃣ Instalar Android SDK y build-tools
+      # 3️⃣ Instalar Android SDK completo
       - name: Setup Android SDK
         run: |
+          set -e
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
-          unzip sdk.zip
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
+          unzip -q sdk.zip
           rm sdk.zip
           mv cmdline-tools latest
+
           export ANDROID_HOME=$HOME/android-sdk
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
           yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2"
 
-      # 4️⃣ Verificar que el ZIP exista
-      - name: Check ZIP
+      # 4️⃣ Ver archivos en la raíz (debug)
+      - name: List root files
         run: |
-          if [ ! -f HyperDroidTermux.zip ]; then
-            echo "ERROR: HyperDroidTermux.zip no encontrado en la raíz del repo"
-            exit 1
-          fi
+          echo "=== ROOT FILES ==="
+          ls -lah
 
-      # 5️⃣ Descomprimir el proyecto
+      # 5️⃣ Descomprimir ZIP (sin importar nombre interno)
       - name: Unzip project
-        run: unzip -o HyperDroidTermux.zip -d .
+        run: |
+          unzip -o HyperDroidTermux.zip -d project
+          echo "=== CONTENIDO DESCOMPRIMIDO ==="
+          ls -lah project
 
-      # 6️⃣ Compilar APK
+      # 6️⃣ Compilar APK (detecta carpeta automáticamente)
       - name: Build APK
         run: |
-          cd HyperDroidTermux
-          chmod +x gradlew
+          set -e
+          echo "=== BUSCANDO PROYECTO ANDROID ==="
+          cd project
+          PROJECT_DIR=$(find . -maxdepth 2 -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 | xargs dirname)
+          echo "Proyecto encontrado en: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+
+          chmod +x gradlew || true
           ./gradlew assembleDebug
 
-      # 7️⃣ Subir APK como artefacto
+      # 7️⃣ Subir APK como artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HyperDroid-debug-apk
-          path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            project/**/app/build/outputs/apk/debug/*.apk
