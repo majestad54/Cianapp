@@ -2,8 +2,7 @@ name: Build HyperDroid APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -11,18 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Descargar el repo
+      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Instalar Java 17
+      # 2️⃣ Java 17
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # 3️⃣ Instalar Android SDK completo
+      # 3️⃣ Android SDK
       - name: Setup Android SDK
         run: |
           set -e
@@ -42,36 +41,34 @@ jobs:
             "platforms;android-33" \
             "build-tools;33.0.2"
 
-      # 4️⃣ Ver archivos en la raíz (debug)
-      - name: List root files
-        run: |
-          echo "=== ROOT FILES ==="
-          ls -lah
+      # 4️⃣ Ver archivos
+      - name: List root
+        run: ls -lah
 
-      # 5️⃣ Descomprimir ZIP (sin importar nombre interno)
+      # 5️⃣ Unzip
       - name: Unzip project
         run: |
           unzip -o HyperDroidTermux.zip -d project
-          echo "=== CONTENIDO DESCOMPRIMIDO ==="
           ls -lah project
 
-      # 6️⃣ Compilar APK (detecta carpeta automáticamente)
+      # 6️⃣ Build APK (FUERZA GRADLE CORRECTO)
       - name: Build APK
         run: |
           set -e
-          echo "=== BUSCANDO PROYECTO ANDROID ==="
           cd project
-          PROJECT_DIR=$(find . -maxdepth 2 -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 | xargs dirname)
+
+          PROJECT_DIR=$(find . -maxdepth 3 -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1 | xargs dirname)
           echo "Proyecto encontrado en: $PROJECT_DIR"
           cd "$PROJECT_DIR"
 
-          chmod +x gradlew || true
-          ./gradlew assembleDebug
+          chmod +x gradlew
 
-      # 7️⃣ Subir APK como artifact
+          ./gradlew --version
+          ./gradlew assembleDebug --no-daemon
+
+      # 7️⃣ Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HyperDroid-debug-apk
-          path: |
-            project/**/app/build/outputs/apk/debug/*.apk
+          path: project/**/app/build/outputs/apk/debug/*.apk
