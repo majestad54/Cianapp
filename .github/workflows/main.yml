@@ -10,34 +10,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-
     steps:
-      # ✅ Obtener el código/subir tu ZIP
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # 1️⃣ Checkout repo
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      # ✅ Configurar Java
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: '17'
+    # 2️⃣ Setup Java
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: '17'
 
-      # ✅ Descomprimir el proyecto desde ZIP
-      - name: Unzip project
-        run: unzip -o HyperDroidTermux.zip -d .
+    # 3️⃣ Install Android SDK
+    - name: Install Android SDK
+      run: |
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        cd $HOME/android-sdk/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
+        unzip sdk.zip
+        rm sdk.zip
+        mv cmdline-tools latest
+        export ANDROID_HOME=$HOME/android-sdk
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      # ✅ Compilar con Gradle
-      - name: Build APK
-        run: |
-          cd HyperDroidTermux
-          ./gradlew assembleDebug
+    # 4️⃣ Unzip project
+    - name: Unzip project
+      run: unzip -o HyperDroidTermux.zip -d .
 
-      # ✅ Subir APK como artefacto (v4 de la acción)
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HyperDroid-debug-apk
-          path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
+    # 5️⃣ Build APK
+    - name: Build APK
+      run: |
+        cd HyperDroidTermux
+        ./gradlew assembleDebug
+
+    # 6️⃣ Upload APK
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: HyperDroid-debug-apk
+        path: HyperDroidTermux/app/build/outputs/apk/debug/app-debug.apk
