@@ -11,18 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout del repositorio
+      # 1️⃣ Checkout del repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Instalar Java
-      - name: Setup Java 17
+      # 2️⃣ Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # 3️⃣ Instalar Android SDK y build tools
+      # 3️⃣ Instalar Android SDK y build-tools
       - name: Setup Android SDK
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
@@ -36,17 +36,26 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      # 4️⃣ Descomprimir tu proyecto
+      # 4️⃣ Verificar que el ZIP exista
+      - name: Check ZIP
+        run: |
+          if [ ! -f HyperDroidTermux.zip ]; then
+            echo "ERROR: HyperDroidTermux.zip no encontrado en la raíz del repo"
+            exit 1
+          fi
+
+      # 5️⃣ Descomprimir el proyecto
       - name: Unzip project
         run: unzip -o HyperDroidTermux.zip -d .
 
-      # 5️⃣ Compilar el APK
+      # 6️⃣ Compilar APK
       - name: Build APK
         run: |
           cd HyperDroidTermux
+          chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 6️⃣ Subir el APK compilado como artefacto
+      # 7️⃣ Subir APK como artefacto
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
