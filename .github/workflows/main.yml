@@ -5,10 +5,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Cianapp Repo
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Setup Build Tools
+      - name: Setup Java and Build Tools
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      - name: Install Apktool
         run: |
           sudo apt-get update
           sudo apt-get install -y apktool
@@ -16,20 +22,30 @@ jobs:
       - name: Decompile HyperDroid
         run: apktool d HyperDroid_1.1.apk -o decompiled_app
 
-      - name: Clone Winlator Resources
+      - name: Extract Winlator Resources
         run: |
-          git clone https://github.com/brunodev85/winlator.git winlator_source
-          # Inyectamos los cursores elegantes
-          cp -r winlator_source/app/src/main/assets/cursors/* decompiled_app/assets/cursors/
+          # Clonamos el código fuente para extraer el cursor elegante
+          git clone --depth 1 https://github.com/brunodev85/winlator.git winlator_source
+          # Creamos la carpeta de destino para los iconos en HyperDroid
+          mkdir -p decompiled_app/assets/img/
+          # Buscamos e inyectamos cualquier recurso de cursor de Winlator
+          find winlator_source -name "*cursor*" -type f -exec cp {} decompiled_app/assets/img/ \;
 
-      - name: Apply Laptop Mode (Landscape & DPI)
+      - name: Apply Laptop Mode (Landscape & 1080p)
         run: |
-          # Forzamos horizontal en todas las pantallas
+          # Forzamos la orientación horizontal permanente en el Manifest
           sed -i 's/portrait/landscape/g' decompiled_app/AndroidManifest.xml
-          # Configuración para que las apps se vean completas (DPI bajo)
+          # Ajustamos la densidad (DPI) para ver más contenido en pantalla
+          # Esto hará que las apps detecten el "Modo Tablet/PC"
           echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
+          echo "screen_resolution=1920x1080" >> decompiled_app/assets/config.ini
 
-      - name: Build & Sign PMR AVANCS
+      - name: Build PMR AVANCS APK
         run: |
-          apktool b decompiled_app -o PMR_AVANCS_Final.apk
-          # Nota: Aquí se requiere una firma JKS para instalar en Android
+          apktool b decompiled_app -o PMR_AVANCS_Final_Unsigned.apk
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v3
+        with:
+          name: PMR-AVANCS-Package
+          path: PMR_AVANCS_Final_Unsigned.apk
