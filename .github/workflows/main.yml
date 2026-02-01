@@ -1,4 +1,4 @@
-name: PMR AVANCS - Elite Transformation
+name: PMR AVANCS - Final Fix
 on: [push]
 
 jobs:
@@ -8,41 +8,40 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Install Tools
+      - name: Setup Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y apktool aapt zipalign
+          sudo apt-get install -y zip unzip apksigner zipalign
 
-      - name: Decompile (Fast Mode)
-        # Usamos -r para NO decodificar recursos y evitar los errores de tus capturas
-        run: apktool d -r HyperDroid_1.1.apk -o decompiled_app
-
-      - name: Inject Winlator Cursor
+      - name: Prepare Resources
         run: |
-          git clone --depth 1 https://github.com/brunodev85/winlator.git winlator_source
-          mkdir -p decompiled_app/assets/img/
-          # Inyectamos los punteros elegantes de Winlator
-          find winlator_source -name "*cursor*" -exec cp -r {} decompiled_app/assets/img/ \; || true
+          # Clonamos Winlator para el cursor
+          git clone --depth 1 https://github.com/brunodev85/winlator.git win_src
+          mkdir -p assets/img/
+          # Extraemos solo los cursores elegantes
+          find win_src -name "*cursor*" -exec cp {} assets/img/ \; || true
+          
+          # Creamos la configuración de PC para tu Honor 90
+          echo "preferred_dpi=280" > assets/config.ini
+          echo "screen_resolution=1920x1080" >> assets/config.ini
+          echo "orientation=landscape" >> assets/config.ini
 
-      - name: Laptop Mode (Landscape & DPI)
+      - name: Inject and Sign APK
         run: |
-          # Como no decodificamos recursos, modificamos el config.ini para el DPI y resolución
-          echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
-          echo "screen_resolution=1920x1080" >> decompiled_app/assets/config.ini
-          echo "orientation=landscape" >> decompiled_app/assets/config.ini
+          # Copiamos la base
+          cp HyperDroid_1.1.apk PMR_AVANCS_Base.apk
+          # Inyectamos los nuevos archivos directamente al APK (que es un ZIP)
+          zip -ur PMR_AVANCS_Base.apk assets/
+          
+          # Alineamos el APK para que Android lo acepte
+          zipalign -v 4 PMR_AVANCS_Base.apk PMR_AVANCS_Final.apk
+          
+          # Generamos una firma rápida para que no diga "paquete no válido"
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
+          apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out PMR_AVANCS_READY.apk PMR_AVANCS_Final.apk
 
-      - name: Build APK (No Resource Rebuild)
-        # Al haber usado -r al decompactar, la reconstrucción es instantánea y sin errores
-        run: apktool b decompiled_app -o PMR_AVANCS_Final.apk
-
-      - name: Upload Finished Project
+      - name: Upload PMR AVANCS
         uses: actions/upload-artifact@v4
         with:
-          name: PMR-AVANCS-Final-Package
-          path: PMR_AVANCS_Final.apk
+          name: PMR-AVANCS-Final-App
+          path: PMR_AVANCS_READY.apk
