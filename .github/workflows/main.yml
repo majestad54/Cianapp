@@ -1,61 +1,35 @@
-name: Build APK (FORCED WRAPPER)
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+name: PMR AVANCS - Elite Transformation
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout Cianapp Repo
+        uses: actions/checkout@v3
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Android SDK
+      - name: Setup Build Tools
         run: |
-          set -e
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-          unzip -q tools.zip
-          mv cmdline-tools latest
-          export ANDROID_HOME=$HOME/android-sdk
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          sudo apt-get update
+          sudo apt-get install -y apktool
 
-      - name: Unzip project
-        run: unzip -o HyperDroidTermux.zip -d project
+      - name: Decompile HyperDroid
+        run: apktool d HyperDroid_1.1.apk -o decompiled_app
 
-      - name: Build APK (STRICT)
+      - name: Clone Winlator Resources
         run: |
-          set -e
-          cd project
+          git clone https://github.com/brunodev85/winlator.git winlator_source
+          # Inyectamos los cursores elegantes
+          cp -r winlator_source/app/src/main/assets/cursors/* decompiled_app/assets/cursors/
 
-          PROJECT_DIR=$(find . -name "gradlew" | head -n 1 | xargs dirname)
-          echo "Proyecto encontrado en: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
+      - name: Apply Laptop Mode (Landscape & DPI)
+        run: |
+          # Forzamos horizontal en todas las pantallas
+          sed -i 's/portrait/landscape/g' decompiled_app/AndroidManifest.xml
+          # Configuración para que las apps se vean completas (DPI bajo)
+          echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
 
-          echo "=== FORZANDO WRAPPER ==="
-          chmod +x gradlew
-
-          ./gradlew wrapper \
-            --gradle-version 8.2.1 \
-            --distribution-type bin
-
-          ./gradlew --version
-          ./gradlew assembleDebug --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HyperDroid-debug-apk
-          path: project/**/app/build/outputs/apk/debug/*.apk
+      - name: Build & Sign PMR AVANCS
+        run: |
+          apktool b decompiled_app -o PMR_AVANCS_Final.apk
+          # Nota: Aquí se requiere una firma JKS para instalar en Android
