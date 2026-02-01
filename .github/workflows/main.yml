@@ -22,30 +22,35 @@ jobs:
       - name: Decompile HyperDroid
         run: apktool d HyperDroid_1.1.apk -o decompiled_app
 
-      - name: Fix Invalid Filenames
+      - name: Fix Resource Errors (Anti-207121)
         run: |
-          # Este comando busca archivos con mayúsculas o caracteres prohibidos y los renombra a minúsculas
+          # Eliminamos carpetas de idiomas conflictivas que causan el error en la imagen 207121.jpg
+          find decompiled_app/res -name "values-b+*" -type d -exec rm -rf {} + || true
+          # Limpiamos nombres de archivos inválidos detectados en la imagen 207120.jpg
           find decompiled_app/res -name "*[A-Z]*" | while read f; do mv "$f" "${f%.*}$(basename "${f,,}")" ; done || true
 
-      - name: Extract Winlator Resources
+      - name: Extract Winlator Cursor
         run: |
           git clone --depth 1 https://github.com/brunodev85/winlator.git winlator_source
           mkdir -p decompiled_app/assets/img/
+          # Buscamos los archivos de cursor elegantes e inyectamos
           find winlator_source -name "*cursor*" -exec cp -r {} decompiled_app/assets/img/ \; || true
 
-      - name: Apply Laptop Mode (Landscape & 1080p)
+      - name: Laptop Mode (Landscape & 1080p)
         run: |
+          # Forzamos horizontal para visualización completa de PC
           sed -i 's/portrait/landscape/g' decompiled_app/AndroidManifest.xml
+          # Bajamos DPI a 280 para que las apps muestren todas sus funciones en tu Honor 90
           echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
           echo "screen_resolution=1920x1080" >> decompiled_app/assets/config.ini
 
-      - name: Build PMR AVANCS APK
+      - name: Build APK (Final Fix)
         run: |
-          # Usamos --use-aapt2 para evitar el error de la imagen 207120.jpg
-          apktool b decompiled_app --use-aapt2 -o PMR_AVANCS_Final_Unsigned.apk
+          # Usamos --no-res si sigue fallando, pero primero intentamos con limpieza
+          apktool b decompiled_app --use-aapt2 -o PMR_AVANCS_Final.apk
 
       - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
           name: PMR-AVANCS-Package
-          path: PMR_AVANCS_Final_Unsigned.apk
+          path: PMR_AVANCS_Final.apk
