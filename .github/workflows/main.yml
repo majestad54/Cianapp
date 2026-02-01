@@ -6,13 +6,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Java and Build Tools
-        uses: actions/setup-java@v3
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '17'
 
       - name: Install Apktool
         run: |
@@ -24,19 +24,22 @@ jobs:
 
       - name: Extract Winlator Resources
         run: |
-          # Clonamos el código fuente para extraer el cursor elegante
+          # Clonación ligera del código fuente
           git clone --depth 1 https://github.com/brunodev85/winlator.git winlator_source
-          # Creamos la carpeta de destino para los iconos en HyperDroid
+          
+          # Creamos la carpeta de destino por si acaso
           mkdir -p decompiled_app/assets/img/
-          # Buscamos e inyectamos cualquier recurso de cursor de Winlator
-          find winlator_source -name "*cursor*" -type f -exec cp {} decompiled_app/assets/img/ \;
+          
+          # COMANDO INTELIGENTE: Busca cualquier archivo .cur o puntero y lo inyecta
+          find winlator_source -name "*cursor*" -exec cp -r {} decompiled_app/assets/img/ \; || true
 
       - name: Apply Laptop Mode (Landscape & 1080p)
         run: |
-          # Forzamos la orientación horizontal permanente en el Manifest
+          # Forzamos horizontal para esa visualización de PC que quieres
           sed -i 's/portrait/landscape/g' decompiled_app/AndroidManifest.xml
-          # Ajustamos la densidad (DPI) para ver más contenido en pantalla
-          # Esto hará que las apps detecten el "Modo Tablet/PC"
+          
+          # Bajamos el DPI a 280 para que las apps muestren todas sus funciones
+          # Y fijamos la resolución para tu Honor 90
           echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
           echo "screen_resolution=1920x1080" >> decompiled_app/assets/config.ini
 
@@ -45,7 +48,7 @@ jobs:
           apktool b decompiled_app -o PMR_AVANCS_Final_Unsigned.apk
 
       - name: Upload Result
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PMR-AVANCS-Package
           path: PMR_AVANCS_Final_Unsigned.apk
