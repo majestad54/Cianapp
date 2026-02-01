@@ -19,38 +19,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y apktool aapt zipalign
 
-      - name: Decompile HyperDroid
-        run: apktool d HyperDroid_1.1.apk -o decompiled_app
+      - name: Decompile (Fast Mode)
+        # Usamos -r para NO decodificar recursos y evitar los errores de tus capturas
+        run: apktool d -r HyperDroid_1.1.apk -o decompiled_app
 
-      - name: Fix Resource Errors (Anti-207121)
-        run: |
-          # Eliminamos carpetas de idiomas conflictivas que causan el error en la imagen 207121.jpg
-          find decompiled_app/res -name "values-b+*" -type d -exec rm -rf {} + || true
-          # Limpiamos nombres de archivos inválidos detectados en la imagen 207120.jpg
-          find decompiled_app/res -name "*[A-Z]*" | while read f; do mv "$f" "${f%.*}$(basename "${f,,}")" ; done || true
-
-      - name: Extract Winlator Cursor
+      - name: Inject Winlator Cursor
         run: |
           git clone --depth 1 https://github.com/brunodev85/winlator.git winlator_source
           mkdir -p decompiled_app/assets/img/
-          # Buscamos los archivos de cursor elegantes e inyectamos
+          # Inyectamos los punteros elegantes de Winlator
           find winlator_source -name "*cursor*" -exec cp -r {} decompiled_app/assets/img/ \; || true
 
-      - name: Laptop Mode (Landscape & 1080p)
+      - name: Laptop Mode (Landscape & DPI)
         run: |
-          # Forzamos horizontal para visualización completa de PC
-          sed -i 's/portrait/landscape/g' decompiled_app/AndroidManifest.xml
-          # Bajamos DPI a 280 para que las apps muestren todas sus funciones en tu Honor 90
+          # Como no decodificamos recursos, modificamos el config.ini para el DPI y resolución
           echo "preferred_dpi=280" >> decompiled_app/assets/config.ini
           echo "screen_resolution=1920x1080" >> decompiled_app/assets/config.ini
+          echo "orientation=landscape" >> decompiled_app/assets/config.ini
 
-      - name: Build APK (Final Fix)
-        run: |
-          # Usamos --no-res si sigue fallando, pero primero intentamos con limpieza
-          apktool b decompiled_app --use-aapt2 -o PMR_AVANCS_Final.apk
+      - name: Build APK (No Resource Rebuild)
+        # Al haber usado -r al decompactar, la reconstrucción es instantánea y sin errores
+        run: apktool b decompiled_app -o PMR_AVANCS_Final.apk
 
-      - name: Upload Result
+      - name: Upload Finished Project
         uses: actions/upload-artifact@v4
         with:
-          name: PMR-AVANCS-Package
+          name: PMR-AVANCS-Final-Package
           path: PMR_AVANCS_Final.apk
