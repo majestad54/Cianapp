@@ -1,4 +1,4 @@
-name: PMR AVANCS - Force Elite Transformation
+name: PMR AVANCS - Elite Final Fix
 on: [push]
 
 jobs:
@@ -14,32 +14,36 @@ jobs:
       - name: Decompile
         run: apktool d HyperDroid_1.1.apk -o decomp_app
 
-      - name: Force Custom Cursor (Surgery Mode)
+      - name: Deep Clean Resources (Fix Error 207198)
         run: |
-          # Buscamos todos los archivos de imagen que HyperDroid usa como puntero o icono y los reemplazamos
-          # Tienes que tener un archivo llamado 'puntero.png' en tu repo
-          find decomp_app/res -name "cursor.png" -exec cp puntero.png {} \;
-          find decomp_app/res -name "puntero.png" -exec cp puntero.png {} \;
-          # Si no existe, lo metemos en la ruta de assets crítica
-          mkdir -p decomp_app/assets/img/
-          cp puntero.png decomp_app/assets/img/cursor.png
+          # 1. Eliminamos archivos con nombres inválidos que bloquean aapt
+          find decomp_app/res -name "*[A-Z]*" -delete || true
+          find decomp_app/res -name "*-*" -delete || true
+          # 2. Eliminamos traducciones corruptas que vimos antes
+          rm -rf decomp_app/res/values-b+* || true
 
-      - name: Overwrite Manifest (Landscape & DPI)
+      - name: Inject Custom Cursor
         run: |
-          # Forzamos horizontal en el corazón de la app
-          sed -i 's/portrait/landscape/g' decomp_app/AndroidManifest.xml
-          # Engañamos al sistema para que crea que es una tablet de 1080p
-          sed -i '/<application/i <supports-screens android:smallScreens="false" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true" android:anyDensity="true"/>' decomp_app/AndroidManifest.xml
+          # Inyectamos tu 'puntero.png' en la ruta de recursos
+          mkdir -p decomp_app/assets/img/
+          cp puntero.png decomp_app/assets/img/cursor.png || echo "Sube puntero.png a tu repo"
+
+      - name: Force PC Mode (DPI 280)
+        run: |
+          # Forzamos horizontal y visualización extendida
+          echo "preferred_dpi=280" > decomp_app/assets/config.ini
+          echo "orientation=landscape" >> decomp_app/assets/config.ini
 
       - name: Build & Sign
         run: |
-          apktool b decomp_app -o unsigned.apk
-          zipalign -v 4 unsigned.apk PMR_AVANCS_READY.apk
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_FINAL_AVANCS.apk PMR_AVANCS_READY.apk
+          # Usamos --use-aapt2 para mayor compatibilidad con tu Honor 90
+          apktool b decomp_app --use-aapt2 -o unsigned.apk
+          zipalign -v 4 unsigned.apk PMR_AVANCS_V5.apk
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_READY.apk PMR_AVANCS_V5.apk
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: APK-MODIFICADO
-          path: PMR_FINAL_AVANCS.apk
+          name: PMR-AVANCS-Final
+          path: PMR_READY.apk
