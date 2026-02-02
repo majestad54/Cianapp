@@ -1,50 +1,45 @@
-name: PMR AVANCS - Custom Elite Cursor
+name: PMR AVANCS - Force Elite Transformation
 on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Build Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apktool apksigner zipalign
+      - name: Setup Tools
+        run: sudo apt-get install -y apktool apksigner zipalign
 
-      - name: Decompile HyperDroid
-        # Usamos -r para evitar errores de recursos y trabajar solo en la estructura
-        run: apktool d -r HyperDroid_1.1.apk -o decomp_app
+      - name: Decompile
+        run: apktool d HyperDroid_1.1.apk -o decomp_app
 
-      - name: Create Elegant Cursor Framework
+      - name: Force Custom Cursor (Surgery Mode)
         run: |
-          # Creamos la carpeta donde vivirá tu flechita personalizada
+          # Buscamos todos los archivos de imagen que HyperDroid usa como puntero o icono y los reemplazamos
+          # Tienes que tener un archivo llamado 'puntero.png' en tu repo
+          find decomp_app/res -name "cursor.png" -exec cp puntero.png {} \;
+          find decomp_app/res -name "puntero.png" -exec cp puntero.png {} \;
+          # Si no existe, lo metemos en la ruta de assets crítica
           mkdir -p decomp_app/assets/img/
-          # Instrucción para que el sistema use el cursor de hardware (más fluido)
-          echo "hw_cursor=true" >> decomp_app/assets/config.ini
-          echo "cursor_path=assets/img/cursor.png" >> decomp_app/assets/config.ini
+          cp puntero.png decomp_app/assets/img/cursor.png
 
-      - name: Laptop View Configuration (1080p)
+      - name: Overwrite Manifest (Landscape & DPI)
         run: |
-          # Forzamos que todas las apps se abran en horizontal para visualización completa
-          echo "orientation=landscape" >> decomp_app/assets/config.ini
-          # Bajamos el DPI a 280 para que la interfaz se vea pequeña y profesional
-          echo "preferred_dpi=280" >> decomp_app/assets/config.ini
-          echo "screen_resolution=1920x1080" >> decomp_app/assets/config.ini
+          # Forzamos horizontal en el corazón de la app
+          sed -i 's/portrait/landscape/g' decomp_app/AndroidManifest.xml
+          # Engañamos al sistema para que crea que es una tablet de 1080p
+          sed -i '/<application/i <supports-screens android:smallScreens="false" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true" android:anyDensity="true"/>' decomp_app/AndroidManifest.xml
 
-      - name: Build & Sign PMR AVANCS
+      - name: Build & Sign
         run: |
-          # Reconstruimos el APK con los nuevos cambios
           apktool b decomp_app -o unsigned.apk
-          # Alineamos el archivo para que Android lo acepte sin errores
-          zipalign -v 4 unsigned.apk PMR_AVANCS_V4.apk
-          # Creamos una firma digital para que no diga "paquete no válido"
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR_AVANCS"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_FINAL.apk PMR_AVANCS_V4.apk
+          zipalign -v 4 unsigned.apk PMR_AVANCS_READY.apk
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_FINAL_AVANCS.apk PMR_AVANCS_READY.apk
 
-      - name: Upload Result
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: PMR-AVANCS-Package
-          path: PMR_AVANCS_FINAL.apk
+          name: APK-MODIFICADO
+          path: PMR_FINAL_AVANCS.apk
