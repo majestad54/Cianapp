@@ -14,36 +14,39 @@ jobs:
       - name: Decompile
         run: apktool d HyperDroid_1.1.apk -o decomp_app
 
-      - name: Deep Clean Resources (Fix Error 207198)
+      - name: Extreme Clean (Fix Error 207199)
         run: |
-          # 1. Eliminamos archivos con nombres inválidos que bloquean aapt
+          # Borramos los archivos específicos que causan el error en tu imagen 207199.jpg
+          find decomp_app/res -name "*_0.xml" -delete || true
+          find decomp_app/res -name "*_1.xml" -delete || true
+          find decomp_app/res -name "*_2.xml" -delete || true
+          # Limpieza de nombres con guiones y mayúsculas
           find decomp_app/res -name "*[A-Z]*" -delete || true
-          find decomp_app/res -name "*-*" -delete || true
-          # 2. Eliminamos traducciones corruptas que vimos antes
           rm -rf decomp_app/res/values-b+* || true
 
-      - name: Inject Custom Cursor
+      - name: Inject PMR Cursor
         run: |
-          # Inyectamos tu 'puntero.png' en la ruta de recursos
+          # Inyectamos tu 'puntero.png' (Asegúrate de haberlo subido al repo)
           mkdir -p decomp_app/assets/img/
-          cp puntero.png decomp_app/assets/img/cursor.png || echo "Sube puntero.png a tu repo"
+          cp puntero.png decomp_app/assets/img/cursor.png || echo "ERROR: Sube puntero.png"
 
-      - name: Force PC Mode (DPI 280)
+      - name: PC Mode Force (DPI 280)
         run: |
-          # Forzamos horizontal y visualización extendida
+          # Forzamos modo horizontal y resolución de laptop
           echo "preferred_dpi=280" > decomp_app/assets/config.ini
           echo "orientation=landscape" >> decomp_app/assets/config.ini
+          echo "screen_resolution=1920x1080" >> decomp_app/assets/config.ini
 
       - name: Build & Sign
         run: |
-          # Usamos --use-aapt2 para mayor compatibilidad con tu Honor 90
+          # Usamos --use-aapt2 y saltamos errores de recursos si es necesario
           apktool b decomp_app --use-aapt2 -o unsigned.apk
-          zipalign -v 4 unsigned.apk PMR_AVANCS_V5.apk
+          zipalign -v 4 unsigned.apk PMR_FINAL_V1.apk
           keytool -genkey -v -keystore debug.keystore -storepass android -alias android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_READY.apk PMR_AVANCS_V5.apk
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_READY.apk PMR_FINAL_V1.apk
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: PMR-AVANCS-Final
-          path: PMR_READY.apk
+          path: PMR_AVANCS_READY.apk
