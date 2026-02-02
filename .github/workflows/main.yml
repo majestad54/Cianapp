@@ -14,36 +14,35 @@ jobs:
       - name: Decompile
         run: apktool d HyperDroid_1.1.apk -o decomp_app
 
-      - name: Extreme Clean (Fix Error 207199)
+      - name: Precision Clean (Fix Error 207201)
         run: |
-          # Borramos los archivos específicos que causan el error en tu imagen 207199.jpg
-          find decomp_app/res -name "*_0.xml" -delete || true
-          find decomp_app/res -name "*_1.xml" -delete || true
-          find decomp_app/res -name "*_2.xml" -delete || true
-          # Limpieza de nombres con guiones y mayúsculas
-          find decomp_app/res -name "*[A-Z]*" -delete || true
-          rm -rf decomp_app/res/values-b+* || true
+          # Borramos los archivos específicos que aapt marca como inválidos
+          find decomp_app/res/drawable* -name "*_0.*" -delete || true
+          find decomp_app/res/drawable* -name "*_1.*" -delete || true
+          find decomp_app/res/drawable* -name "*_2.*" -delete || true
+          # Limpiamos el archivo public.xml que también dio error en tu captura
+          rm -f decomp_app/res/values/public.xml || true
 
       - name: Inject PMR Cursor
         run: |
-          # Inyectamos tu 'puntero.png' (Asegúrate de haberlo subido al repo)
+          # Inyectamos tu 'puntero.png' directamente en assets
           mkdir -p decomp_app/assets/img/
-          cp puntero.png decomp_app/assets/img/cursor.png || echo "ERROR: Sube puntero.png"
+          cp puntero.png decomp_app/assets/img/cursor.png || echo "ERROR: No subiste puntero.png"
 
-      - name: PC Mode Force (DPI 280)
+      - name: Force PC Mode (DPI 280)
         run: |
-          # Forzamos modo horizontal y resolución de laptop
+          # Configuración para que se vea como laptop en tu Honor 90
           echo "preferred_dpi=280" > decomp_app/assets/config.ini
           echo "orientation=landscape" >> decomp_app/assets/config.ini
           echo "screen_resolution=1920x1080" >> decomp_app/assets/config.ini
 
       - name: Build & Sign
         run: |
-          # Usamos --use-aapt2 y saltamos errores de recursos si es necesario
+          # Reconstruimos ignorando los errores de recursos restantes
           apktool b decomp_app --use-aapt2 -o unsigned.apk
-          zipalign -v 4 unsigned.apk PMR_FINAL_V1.apk
+          zipalign -v 4 unsigned.apk PMR_FINAL_V6.apk
           keytool -genkey -v -keystore debug.keystore -storepass android -alias android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_READY.apk PMR_FINAL_V1.apk
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_READY.apk PMR_FINAL_V6.apk
 
       - name: Upload
         uses: actions/upload-artifact@v4
