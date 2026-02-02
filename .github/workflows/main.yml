@@ -1,4 +1,4 @@
-name: PMR AVANCS - Elite Final Fix
+name: PMR AVANCS - Final Solution
 on: [push]
 
 jobs:
@@ -11,41 +11,35 @@ jobs:
       - name: Setup Tools
         run: sudo apt-get install -y apktool apksigner zipalign
 
-      - name: Decompile
-        run: apktool d HyperDroid_1.1.apk -o decomp_app
-
-      - name: Precision Clean (Fix Error 207201)
+      - name: Modify APK Assets
         run: |
-          # Borramos los archivos específicos que aapt marca como inválidos
-          find decomp_app/res/drawable* -name "*_0.*" -delete || true
-          find decomp_app/res/drawable* -name "*_1.*" -delete || true
-          find decomp_app/res/drawable* -name "*_2.*" -delete || true
-          # Limpiamos el archivo public.xml que también dio error en tu captura
-          rm -f decomp_app/res/values/public.xml || true
+          # 1. Descomprimimos solo la carpeta assets (donde está la configuración)
+          unzip HyperDroid_1.1.apk "assets/*" -d custom_mod
+          
+          # 2. Inyectamos la configuración de laptop para tu Honor 90
+          echo "preferred_dpi=280" > custom_mod/assets/config.ini
+          echo "orientation=landscape" >> custom_mod/assets/config.ini
+          echo "screen_resolution=1920x1080" >> custom_mod/assets/config.ini
+          
+          # 3. Inyectamos tu flechita personalizada
+          mkdir -p custom_mod/assets/img/
+          cp puntero.png custom_mod/assets/img/cursor.png || echo "Falta puntero.png"
+          
+          # 4. Metemos los cambios de vuelta al APK original sin tocar los recursos rotos
+          cp HyperDroid_1.1.apk PMR_AVANCS_Base.apk
+          cd custom_mod && zip -ur ../PMR_AVANCS_Base.apk assets/ && cd ..
 
-      - name: Inject PMR Cursor
+      - name: Final Sign & Align
         run: |
-          # Inyectamos tu 'puntero.png' directamente en assets
-          mkdir -p decomp_app/assets/img/
-          cp puntero.png decomp_app/assets/img/cursor.png || echo "ERROR: No subiste puntero.png"
-
-      - name: Force PC Mode (DPI 280)
-        run: |
-          # Configuración para que se vea como laptop en tu Honor 90
-          echo "preferred_dpi=280" > decomp_app/assets/config.ini
-          echo "orientation=landscape" >> decomp_app/assets/config.ini
-          echo "screen_resolution=1920x1080" >> decomp_app/assets/config.ini
-
-      - name: Build & Sign
-        run: |
-          # Reconstruimos ignorando los errores de recursos restantes
-          apktool b decomp_app --use-aapt2 -o unsigned.apk
-          zipalign -v 4 unsigned.apk PMR_FINAL_V6.apk
+          # Alineamos para que Android no lo rechace
+          zipalign -v 4 PMR_AVANCS_Base.apk PMR_AVANCS_Final.apk
+          
+          # Creamos la firma digital para que se instale correctamente
           keytool -genkey -v -keystore debug.keystore -storepass android -alias android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_READY.apk PMR_FINAL_V6.apk
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_READY.apk PMR_AVANCS_Final.apk
 
-      - name: Upload
+      - name: Upload Finished APK
         uses: actions/upload-artifact@v4
         with:
-          name: PMR-AVANCS-Final
+          name: PMR-AVANCS-Ready
           path: PMR_AVANCS_READY.apk
