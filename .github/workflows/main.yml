@@ -1,4 +1,4 @@
-name: PMR AVANCS - Final Fix
+name: PMR AVANCS - Custom Elite Cursor
 on: [push]
 
 jobs:
@@ -11,37 +11,40 @@ jobs:
       - name: Setup Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y zip unzip apksigner zipalign
+          sudo apt-get install -y apktool apksigner zipalign
 
-      - name: Prepare Resources
+      - name: Decompile HyperDroid
+        # Usamos -r para evitar errores de recursos y trabajar solo en la estructura
+        run: apktool d -r HyperDroid_1.1.apk -o decomp_app
+
+      - name: Create Elegant Cursor Framework
         run: |
-          # Clonamos Winlator para el cursor
-          git clone --depth 1 https://github.com/brunodev85/winlator.git win_src
-          mkdir -p assets/img/
-          # Extraemos solo los cursores elegantes
-          find win_src -name "*cursor*" -exec cp {} assets/img/ \; || true
-          
-          # Creamos la configuración de PC para tu Honor 90
-          echo "preferred_dpi=280" > assets/config.ini
-          echo "screen_resolution=1920x1080" >> assets/config.ini
-          echo "orientation=landscape" >> assets/config.ini
+          # Creamos la carpeta donde vivirá tu flechita personalizada
+          mkdir -p decomp_app/assets/img/
+          # Instrucción para que el sistema use el cursor de hardware (más fluido)
+          echo "hw_cursor=true" >> decomp_app/assets/config.ini
+          echo "cursor_path=assets/img/cursor.png" >> decomp_app/assets/config.ini
 
-      - name: Inject and Sign APK
+      - name: Laptop View Configuration (1080p)
         run: |
-          # Copiamos la base
-          cp HyperDroid_1.1.apk PMR_AVANCS_Base.apk
-          # Inyectamos los nuevos archivos directamente al APK (que es un ZIP)
-          zip -ur PMR_AVANCS_Base.apk assets/
-          
-          # Alineamos el APK para que Android lo acepte
-          zipalign -v 4 PMR_AVANCS_Base.apk PMR_AVANCS_Final.apk
-          
-          # Generamos una firma rápida para que no diga "paquete no válido"
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
-          apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out PMR_AVANCS_READY.apk PMR_AVANCS_Final.apk
+          # Forzamos que todas las apps se abran en horizontal para visualización completa
+          echo "orientation=landscape" >> decomp_app/assets/config.ini
+          # Bajamos el DPI a 280 para que la interfaz se vea pequeña y profesional
+          echo "preferred_dpi=280" >> decomp_app/assets/config.ini
+          echo "screen_resolution=1920x1080" >> decomp_app/assets/config.ini
 
-      - name: Upload PMR AVANCS
+      - name: Build & Sign PMR AVANCS
+        run: |
+          # Reconstruimos el APK con los nuevos cambios
+          apktool b decomp_app -o unsigned.apk
+          # Alineamos el archivo para que Android lo acepte sin errores
+          zipalign -v 4 unsigned.apk PMR_AVANCS_V4.apk
+          # Creamos una firma digital para que no diga "paquete no válido"
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=PMR_AVANCS"
+          apksigner sign --ks debug.keystore --ks-pass pass:android --out PMR_AVANCS_FINAL.apk PMR_AVANCS_V4.apk
+
+      - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: PMR-AVANCS-Final-App
-          path: PMR_AVANCS_READY.apk
+          name: PMR-AVANCS-Package
+          path: PMR_AVANCS_FINAL.apk
